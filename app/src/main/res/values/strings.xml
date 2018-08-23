@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">skyeye</string>
+    <string name="button">开始检测</string>
+    <string name="qrcode">二维码</string>
+    <string name="entrance">入口</string>
+    <string name="exit">出口</string>
+    <string name="store_id">店铺编号</string>
+    <string name="tips">欢迎光临</string>
+    <string name="please">请%1$s，%2$s</string>
+</resources>
