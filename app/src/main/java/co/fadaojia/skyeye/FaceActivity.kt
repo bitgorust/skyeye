@@ -13,18 +13,8 @@ import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.widget.ImageView
-import com.interjoy.skface.FaceStruct
-import com.interjoy.skface.SKFaceEnum
-import com.interjoy.skface.callbackinterface.NetDBSyncProCallbackInterface
-import com.interjoy.skface.callbackinterface.NetRegisteredPersonNumCallbackInterface
-import com.interjoy.skface.callbackinterface.PersonEnterCallbackInterface
-import com.interjoy.skface.callbackinterface.PersonLeaveCallbackInterface
-import com.interjoy.skface.callbackinterface.RegPersonCallbackInterface
-import kotlinx.serialization.json.JSON
-import java.lang.ref.WeakReference
-import java.util.*
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import com.github.kittinunf.fuel.httpPost
 import com.github.kittinunf.result.Result
@@ -32,8 +22,14 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import com.interjoy.skface.FaceStruct
+import com.interjoy.skface.SKFaceEnum
+import com.interjoy.skface.callbackinterface.*
 import kotlinx.serialization.internal.ArrayListSerializer
 import kotlinx.serialization.internal.IntSerializer
+import kotlinx.serialization.json.JSON
+import java.lang.ref.WeakReference
+import java.util.*
 
 
 class FaceActivity : AppCompatActivity() {
@@ -52,6 +48,7 @@ class FaceActivity : AppCompatActivity() {
     private var registering: Boolean = false
 
     private lateinit var storeId: String
+    private lateinit var groupId: String
     private lateinit var doorKey: String
 
     private lateinit var svPreview: SurfaceView
@@ -60,11 +57,14 @@ class FaceActivity : AppCompatActivity() {
     private lateinit var msgHandler: MessageHandler
 
     private var camera: Camera? = null
+    private var surfaceWidth: Int? = null
+    private var surfaceHeight: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_face)
         storeId = intent.getStringExtra("store")
+        groupId = intent.getStringExtra("group")
         doorKey = intent.getStringExtra("door")
 
         msgHandler = MessageHandler(this)
@@ -117,6 +117,8 @@ class FaceActivity : AppCompatActivity() {
         svPreview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
                 Log.d(TAG, "surface changed: format($format), width($width), height($height)")
+                surfaceWidth = width
+                surfaceHeight = height
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder?) {
@@ -184,10 +186,10 @@ class FaceActivity : AppCompatActivity() {
             if (!isTracking) {
                 val previewSize = camera.parameters.previewSize
                 Log.d(TAG, "camera preview size: ${previewSize.width} * ${previewSize.height}")
-                isTracking = libCenter.skFace.SKFaceVideoTrackInit(previewSize.width, previewSize.height, 3)
+                isTracking = libCenter.skFace.SKFaceVideoTrackInit(previewSize.width, previewSize.height, 3, false, 0)
             } else if (!processing) {
                 processing = true
-                libCenter.skFace.SKFaceVideoTrackYUV(bytes, false) { FaceStructs ->
+                libCenter.skFace.SKFaceVideoTrackYUV(bytes) { FaceStructs ->
                     checkFaces(FaceStructs)
                     processing = false
                 }
@@ -217,15 +219,17 @@ class FaceActivity : AppCompatActivity() {
             registering = true
             val registerName = "$storeId${System.currentTimeMillis() / 1000}"
             Log.d(TAG, "start registering: $registerName")
-            skFace.SKFaceStartRegPerson(1, registerName, face.Sex, Calendar.getInstance().get(Calendar.YEAR) - face.Age, 10, 1, "", object : RegPersonCallbackInterface {
-                override fun RegPersonStateCallback(code: Int, msg: String?) {
+            skFace.SKFaceStartRegPerson(0, registerName, face.Sex, Calendar.getInstance().get(Calendar.YEAR) - face.Age, 10, 1, "", groupId, 0, 0, surfaceWidth!!, surfaceHeight!!, object : RegPersonCallbackInterface {
+                override fun RegPersonStateCallback(code: Int, msg: String?, personInfo: String?) {
                     Log.d(TAG, "$code: $msg")
                     runOnUiThread { tvTips.text = msg }
                     when (code) {
                         5001 -> {
+                            Log.d(TAG, "$personInfo")
+                            val person = JSON.parse<PersonInfo>(personInfo!!)
                             val message = Message.obtain()
                             message.what = MSG_REGISTERED
-                            message.obj = registerName
+                            message.obj = person.Person_id
                             msgHandler.sendMessageDelayed(message, 2000)
                         }
                         4001 -> {

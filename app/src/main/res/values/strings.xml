@@ -5,6 +5,7 @@
     <string name="entrance">入口</string>
     <string name="exit">出口</string>
     <string name="store_id">店铺编号</string>
+    <string name="group_id">分组ID</string>
     <string name="tips">欢迎光临</string>
     <string name="please">请%1$s，%2$s</string>
 </resources>

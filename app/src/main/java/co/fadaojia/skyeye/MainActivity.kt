@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var btnStart: Button
     private lateinit var etStore: EditText
+    private lateinit var etGroup: EditText
     private lateinit var rgDoors: RadioGroup
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -65,15 +66,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun initView() {
         etStore = findViewById(R.id.store_id)
+        etGroup = findViewById(R.id.group_id)
         rgDoors = findViewById(R.id.doors)
         btnStart = findViewById(R.id.button)
         btnStart.setOnClickListener { _ ->
             when {
                 etStore.text.isNullOrBlank() -> Toast.makeText(applicationContext, "店铺编号不能为空", Toast.LENGTH_SHORT).show()
+                etGroup.text.isNullOrBlank() -> Toast.makeText(applicationContext, "分组ID不能为空", Toast.LENGTH_SHORT).show()
                 rgDoors.checkedRadioButtonId == -1 -> Toast.makeText(applicationContext, "请选择入口或出口", Toast.LENGTH_SHORT).show()
                 else -> {
                     val intent = Intent(this, FaceActivity::class.java)
                     intent.putExtra("store", etStore.text.toString())
+                    intent.putExtra("group", etGroup.text.toString())
                     val checked = rgDoors.indexOfChild(findViewById(rgDoors.checkedRadioButtonId))
                     intent.putExtra("door", if (checked == 0) "entrance" else "exit")
                     startActivity(intent)
