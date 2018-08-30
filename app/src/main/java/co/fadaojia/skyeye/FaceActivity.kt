@@ -57,17 +57,18 @@ class FaceActivity : AppCompatActivity() {
     private lateinit var msgHandler: MessageHandler
 
     private var camera: Camera? = null
-    private var surfaceWidth: Int? = null
-    private var surfaceHeight: Int? = null
+    private var previewWidth: Int? = null
+    private var previewHeight: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_face)
+
         storeId = intent.getStringExtra("store")
         groupId = intent.getStringExtra("group")
         doorKey = intent.getStringExtra("door")
-
         msgHandler = MessageHandler(this)
+
         initView()
         startListening()
     }
@@ -75,10 +76,12 @@ class FaceActivity : AppCompatActivity() {
     override fun onDestroy() {
         val skFace = LibCenter.getInstance(applicationContext).skFace
         skFace.SKFaceStopRegPerson()
+
         registering = false
         processing = false
         isTracking = false
         msgHandler.removeCallbacksAndMessages(null)
+
         super.onDestroy()
     }
 
@@ -117,8 +120,6 @@ class FaceActivity : AppCompatActivity() {
         svPreview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
                 Log.d(TAG, "surface changed: format($format), width($width), height($height)")
-                surfaceWidth = width
-                surfaceHeight = height
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder?) {
@@ -158,7 +159,10 @@ class FaceActivity : AppCompatActivity() {
                 }
             } else if (person.Person_id != -1 && !person.Person_Name.isNullOrBlank()) {
                 Log.d(TAG, "opening $doorKey of $storeId")
-                runOnUiThread { clearQRCode() }
+                runOnUiThread {
+                    tvTips.text = person.Person_Name
+                    clearQRCode()
+                }
                 "http://wx.fadaojia.co/command/$storeId/$doorKey/switch".httpPost().responseString { _, _, result ->
                     when (result) {
                         is Result.Failure -> {
@@ -186,8 +190,8 @@ class FaceActivity : AppCompatActivity() {
             if (!isTracking) {
                 val previewSize = camera.parameters.previewSize
                 Log.d(TAG, "camera preview size: ${previewSize.width} * ${previewSize.height}")
-                isTracking = libCenter.skFace.SKFaceVideoTrackInit(previewSize.width, previewSize.height, 3, false, 0)
-            } else if (!processing) {
+                isTracking = libCenter.skFace.SKFaceVideoTrackInit(previewSize.width, previewSize.height, 3, true, 0)
+            } else if (!processing && !registering) {
                 processing = true
                 libCenter.skFace.SKFaceVideoTrackYUV(bytes) { FaceStructs ->
                     checkFaces(FaceStructs)
@@ -212,21 +216,22 @@ class FaceActivity : AppCompatActivity() {
             return
         }
         val face = faces.first()
+        Log.d(TAG, "${face.PersonID}, ${face.Name}, ${face.Age}, ${face.Sex}, ${face.Glasses}")
         if (face.Name == "陌生人") {
             if (registering) {
                 return
             }
             registering = true
-            val registerName = "$storeId${System.currentTimeMillis() / 1000}"
+            val registerName = "222" //"$storeId${System.currentTimeMillis() / 1000}"
             Log.d(TAG, "start registering: $registerName")
-            skFace.SKFaceStartRegPerson(0, registerName, face.Sex, Calendar.getInstance().get(Calendar.YEAR) - face.Age, 10, 1, "", groupId, 0, 0, surfaceWidth!!, surfaceHeight!!, object : RegPersonCallbackInterface {
-                override fun RegPersonStateCallback(code: Int, msg: String?, personInfo: String?) {
+            skFace.SKFaceStartRegPerson(0, registerName, face.Sex, Calendar.getInstance().get(Calendar.YEAR) - face.Age, 10, 1, "", "", 0, 0, 1344, 1008, object : RegPersonCallbackInterface {
+                override fun RegPersonStateCallback(code: Int, msg: String, personInfo: String) {
                     Log.d(TAG, "$code: $msg")
                     runOnUiThread { tvTips.text = msg }
                     when (code) {
                         5001 -> {
-                            Log.d(TAG, "$personInfo")
-                            val person = JSON.parse<PersonInfo>(personInfo!!)
+                            Log.d(TAG, personInfo)
+                            val person = JSON.parse<PersonInfo>(personInfo)
                             val message = Message.obtain()
                             message.what = MSG_REGISTERED
                             message.obj = person.Person_id
@@ -238,17 +243,21 @@ class FaceActivity : AppCompatActivity() {
                     }
                 }
 
-                override fun RegPersonProgressInfoCallback(progress: String?) {
+                override fun RegPersonProgressInfoCallback(progress: String) {
                     Log.d(TAG, "progress: $progress")
-                    val result = JSON.parse(ArrayListSerializer(IntSerializer), progress!!)
+                    val result = JSON.parse(ArrayListSerializer(IntSerializer), progress)
                     val ready = "已注册：${if (result[36] == 1) "正" else ""}${if (result[9] == 1) "右" else ""}${if (result[27] == 1) "左" else ""}${if (result[0] == 1) "上" else ""}${if (result[18] == 1) "下" else ""}"
-                    when {
-                        result[36] == 0 -> runOnUiThread { tvTips.text = resources.getString(R.string.please).format("正视前方", ready) }
-                        result[9] == 0 -> runOnUiThread { tvTips.text = resources.getString(R.string.please).format("向右转头", ready) }
-                        result[27] == 0 -> runOnUiThread { tvTips.text = resources.getString(R.string.please).format("向左转头", ready) }
-                        result[0] == 0 -> runOnUiThread { tvTips.text = resources.getString(R.string.please).format("向上仰头", ready) }
-                        result[18] == 0 -> runOnUiThread { tvTips.text = resources.getString(R.string.please).format("向下低头", ready) }
-                        else -> runOnUiThread { tvTips.text = "已完成注册" }
+                    val template = resources.getString(R.string.please)
+                    val text: String = when {
+                        result[36] == 0 -> template.format("正视前方", ready)
+                        result[9] == 0 -> template.format("向右转头", ready)
+                        result[27] == 0 -> template.format("向左转头", ready)
+                        result[0] == 0 -> template.format("向上仰头", ready)
+                        result[18] == 0 -> template.format("向下低头", ready)
+                        else -> "已完成注册"
+                    }
+                    runOnUiThread {
+                        tvTips.text = text
                     }
                 }
             })
@@ -258,13 +267,19 @@ class FaceActivity : AppCompatActivity() {
     private fun initCamera() {
         val params = camera!!.parameters
         params.exposureCompensation = 0
+        params.set("orientation", "landscape")
+        params.setRotation(0)
         params.setPreviewSize(WIDTH, HEIGHT)
         if (params.supportedFocusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
             params.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO
         }
         params.previewFormat = ImageFormat.NV21
         Log.d(TAG, "initCamera: ${params.previewSize.width} * ${params.previewSize.height}")
+        previewWidth = params.previewSize.width
+        previewHeight = params.previewSize.height
+
         camera!!.parameters = params
+        camera!!.setDisplayOrientation(0)
         camera!!.startPreview()
     }
 

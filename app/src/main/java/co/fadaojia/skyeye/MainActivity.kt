@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                 etGroup.text.isNullOrBlank() -> Toast.makeText(applicationContext, "分组ID不能为空", Toast.LENGTH_SHORT).show()
                 rgDoors.checkedRadioButtonId == -1 -> Toast.makeText(applicationContext, "请选择入口或出口", Toast.LENGTH_SHORT).show()
                 else -> {
-                    val intent = Intent(this, FaceActivity::class.java)
+                    val intent = Intent(this, FaceJackActivity::class.java)
                     intent.putExtra("store", etStore.text.toString())
                     intent.putExtra("group", etGroup.text.toString())
                     val checked = rgDoors.indexOfChild(findViewById(rgDoors.checkedRadioButtonId))
