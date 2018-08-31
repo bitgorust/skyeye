@@ -1,5 +1,6 @@
 package co.fadaojia.skyeye
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ImageFormat
@@ -10,10 +11,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Message
 import android.support.v7.app.AppCompatActivity
+import android.util.DisplayMetrics
 import android.util.Log
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import android.view.View
+import android.util.Pair
+import android.view.*
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.github.kittinunf.fuel.httpPost
@@ -74,7 +76,7 @@ class FaceActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        val skFace = LibCenter.getInstance(applicationContext).skFace
+        val skFace = LibCenter.getInstance(this).skFace
         skFace.SKFaceStopRegPerson()
 
         registering = false
@@ -116,6 +118,21 @@ class FaceActivity : AppCompatActivity() {
 
     private fun initView() {
         svPreview = findViewById(R.id.preview)
+        val screenSize = getScreenSize(this)
+        var screenWidth = screenSize!!.first
+        var screenHeight = screenSize.second
+        val ratio = 1.0f * screenWidth / screenHeight
+        val f1 = 1.0f * HEIGHT / WIDTH
+        val f2 = 1.0f * WIDTH / HEIGHT
+        if (ratio >= f1) {
+            screenHeight = (f1 * screenWidth + 0.5f).toInt()
+        } else {
+            screenWidth = (f2 * screenHeight + 0.5f).toInt()
+        }
+        Log.d(TAG, "previewSize: $screenWidth * $screenHeight")
+        val fp = FrameLayout.LayoutParams(screenWidth, screenHeight)
+        fp.gravity = Gravity.START
+        svPreview.layoutParams = fp
         svPreview.holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS)
         svPreview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
@@ -135,7 +152,7 @@ class FaceActivity : AppCompatActivity() {
     }
 
     private fun startListening() {
-        val libCenter = LibCenter.getInstance(applicationContext)
+        val libCenter = LibCenter.getInstance(this)
         val skFace = libCenter.skFace
         val ready: Boolean = skFace.SKFaceSetServer(SERVER_URL)
         Log.d(TAG, "server is ready: $ready")
@@ -186,11 +203,11 @@ class FaceActivity : AppCompatActivity() {
         initCamera()
         camera!!.setPreviewDisplay(svPreview.holder)
         camera!!.setPreviewCallback { bytes, camera ->
-            val libCenter = LibCenter.getInstance(applicationContext)
+            val libCenter = LibCenter.getInstance(this)
             if (!isTracking) {
                 val previewSize = camera.parameters.previewSize
                 Log.d(TAG, "camera preview size: ${previewSize.width} * ${previewSize.height}")
-                isTracking = libCenter.skFace.SKFaceVideoTrackInit(previewSize.width, previewSize.height, 3, true, 0)
+                isTracking = libCenter.skFace.SKFaceVideoTrackInit(previewSize.width, previewSize.height, 1, false, 0)
             } else if (!processing && !registering) {
                 processing = true
                 libCenter.skFace.SKFaceVideoTrackYUV(bytes) { FaceStructs ->
@@ -205,7 +222,7 @@ class FaceActivity : AppCompatActivity() {
         if (structs == null) {
             return
         }
-        val libCenter = LibCenter.getInstance(applicationContext)
+        val libCenter = LibCenter.getInstance(this)
         val skFace = libCenter.skFace
         val faces = structs.filterNot { it.Name.isNullOrBlank() }
         if (faces.isEmpty()) {
@@ -224,7 +241,7 @@ class FaceActivity : AppCompatActivity() {
             registering = true
             val registerName = "222" //"$storeId${System.currentTimeMillis() / 1000}"
             Log.d(TAG, "start registering: $registerName")
-            skFace.SKFaceStartRegPerson(0, registerName, face.Sex, Calendar.getInstance().get(Calendar.YEAR) - face.Age, 10, 1, "", "", 0, 0, 1344, 1008, object : RegPersonCallbackInterface {
+            skFace.SKFaceStartRegPerson(0, registerName, face.Sex, Calendar.getInstance().get(Calendar.YEAR) - face.Age, 10, 1, "", "", 320, 0, 320, 480, object : RegPersonCallbackInterface {
                 override fun RegPersonStateCallback(code: Int, msg: String, personInfo: String) {
                     Log.d(TAG, "$code: $msg")
                     runOnUiThread { tvTips.text = msg }
@@ -288,6 +305,14 @@ class FaceActivity : AppCompatActivity() {
         camera?.stopPreview()
         camera?.release()
         camera = null
+    }
+
+    private fun getScreenSize(context: Context): Pair<Int, Int>? {
+        val wm = context
+                .getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val outMetrics = DisplayMetrics()
+        wm.defaultDisplay.getMetrics(outMetrics)
+        return android.util.Pair.create(outMetrics.widthPixels, outMetrics.heightPixels)
     }
 
     class MessageHandler(activity: FaceActivity) : Handler() {

@@ -18,8 +18,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val TAG = "MainActivity"
         const val REQUEST_PERMISSIONS = 0
-        const val API_KEY: String = "ba2d70f1a5542ec2b2bbdc8da915d013"
-        const val API_SECRET: String = "a31aa14ef574b4bc4befccabfcd78fbd"
+        const val API_KEY = "ba2d70f1a5542ec2b2bbdc8da915d013"
+        const val API_SECRET = "a31aa14ef574b4bc4befccabfcd78fbd"
         val PERMISSIONS = arrayOf(
                 Manifest.permission.CAMERA,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                 etGroup.text.isNullOrBlank() -> Toast.makeText(applicationContext, "分组ID不能为空", Toast.LENGTH_SHORT).show()
                 rgDoors.checkedRadioButtonId == -1 -> Toast.makeText(applicationContext, "请选择入口或出口", Toast.LENGTH_SHORT).show()
                 else -> {
-                    val intent = Intent(this, FaceJackActivity::class.java)
+                    val intent = Intent(this, FaceActivity::class.java)
                     intent.putExtra("store", etStore.text.toString())
                     intent.putExtra("group", etGroup.text.toString())
                     val checked = rgDoors.indexOfChild(findViewById(rgDoors.checkedRadioButtonId))
