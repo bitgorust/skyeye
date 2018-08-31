@@ -41,7 +41,7 @@ class FaceActivity : AppCompatActivity() {
         const val WIDTH = 640
         const val HEIGHT = 480
         const val MSG_REGISTERED = 1
-        const val SERVER_URL: String = "http://skfrm.sk-ai.com"
+        const val SERVER_URL = "http://skfrm.sk-ai.com"
         const val SIDE_LEN = 256
     }
 
